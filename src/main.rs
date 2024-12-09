@@ -1,4 +1,6 @@
-mod queue;
+use regex::Regex;
+
+use std::{fs, path::Path, process::Command};
 
 use axum::{
     extract::{DefaultBodyLimit, Multipart},
@@ -25,6 +27,7 @@ async fn main() {
     let app = Router::new()
         .route("/file", post(accept_form))
         .route("/c2rust", post(c2rust_by_project))
+        .route("/api/transcode/from_json_to", post(from_json_to_rust))
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(
             25 * 1024 * 1024, /* 25mb */
@@ -103,6 +106,199 @@ async fn c2rust_by_project(Json(params): Json<ProjectParams>) {
     let base_path = Path::new("uploads").join(&params.name);
     fs::create_dir_all(&base_path).unwrap();
     create_directory_structure(&base_path, &params.directories);
+}
+
+
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct CompileCommandItem {
+    pub arguments: Vec<String>, // vec!["cc", "-o", "a.c"]
+    pub directory: String, // "src"
+    pub file: String, // "a.c"
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct CompileCommand {
+    pub items: Vec<CompileCommandItem>,
+}
+
+impl CompileCommand {
+    pub fn new() -> Self {
+        Self { items: vec![] }
+    }
+
+    pub fn push(&mut self, item: CompileCommandItem) {
+        self.items.push(item);
+    }
+
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct TranscodePathParams {
+    pub path: String,
+    pub code: String,
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct TranscodeParams {
+    #[serde(rename = "projectName")]
+    pub project_name: String,
+    pub content: Vec<TranscodePathParams>,
+}
+
+async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<TranscodeParams> {
+    println!("Received params: {:?}", params);
+    let constents = params.content;
+    let mut compile_command = CompileCommand::new();
+    // 目录的base路径
+    let base_path = Path::new("uploads").join(&params.project_name);
+    let base_dir = base_path.to_str().unwrap();
+    let mut main_file_name = String::new();
+    for content in constents {
+        let path = content.path;
+        let code = content.code;
+        println!("Path: {:?}, Code: {:?}", path, code);
+        // 获取path的目录部分
+        let dir = Path::new(&path).parent().unwrap().to_str().unwrap();
+        println!("Dir: {:?}", dir);
+        // 获取path的文件名部分
+        let file_name = Path::new(&path).file_name().unwrap().to_str().unwrap();
+        println!("File Name: {:?}", file_name);
+        // 判断dir是否存在
+        let dir_path = base_path.join(dir);
+        if !dir_path.exists() {
+            fs::create_dir_all(&dir_path).unwrap();
+        }
+        // 将code写入到file_name中
+        let file_path = dir_path.join(file_name);
+        fs::write(&file_path, &code).unwrap();
+
+        // 获取文件扩展名
+        let file_extension = {
+            let ext = Path::new(&file_name).extension().unwrap();
+            ext.to_str().unwrap()
+        };
+        println!("File Extension: {:?}", file_extension);
+        let code_content = code.as_str();
+        if file_extension == "c" {
+            // 判断是否是main函数所在的文件
+            if code_content.contains("main(") || code_content.contains("int main(") || code_content.contains("void main(") || code_content.contains("main (") {
+                println!("Main Function: {:?}", code_content);
+                let re = Regex::new(r"-").unwrap();
+                main_file_name = re.replace_all(&file_name, "_").to_string();
+            compile_command.push(CompileCommandItem {
+                arguments: vec!["cc".to_string(), "-c".to_string(), file_name.to_string()],
+                directory: dir_path.to_str().unwrap().to_string(),
+                file: file_name.to_string(),
+            });
+        }
+    }
+
+    println!("Compile Command: {:?}", compile_command);
+    // 将compile_command转换为json
+    let compile_command_json = serde_json::to_string(&compile_command).unwrap();
+    println!("Compile Command JSON: {:?}", compile_command_json);
+
+    // 写入到compile_command.json中
+    let compile_command_json_path = base_path.join("compile_command.json");
+    fs::write(compile_command_json_path, compile_command_json).unwrap();
+
+    let pn = params.project_name.replace("-", "_");
+
+    // 使用Commond执行 interp
+    let command = Command::new("c2rust")
+        .current_dir(base_path.clone())
+        .arg("transpile")
+        .arg(format!("--binary {}", main_file_name))
+        .arg("compile_command.json")
+        .arg("-o")
+        .arg(format!("{}.rs", pn))
+        .output().unwrap();
+
+    println!("Command Output: {:?}", command);
+    let output = String::from_utf8(command.stdout).unwrap();
+    println!("Output: {:?}", output);
+    let error = String::from_utf8(command.stderr).unwrap();
+    println!("Error: {:?}", error);
+
+    let mut result = TranscodeParams {
+        project_name: params.project_name,
+        content: vec![],
+    };
+
+    result.project_name = pn.clone();
+
+    let output_base_dir_path = Path::new(&base_dir).join(&pn);
+    // 递归遍历output_base_dir_path下的所有文件并添加到result中
+    fn recursive_read_dir(path: &Path, result: &mut TranscodeParams) {
+        for entry in fs::read_dir(path).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path().to_path_buf();
+            if path.is_dir() {
+                recursive_read_dir(&path, result);
+            } else {
+                let file_name = path.file_name().unwrap().to_str().unwrap();
+                let mut file_content = fs::read_to_string(&path).unwrap();
+                println!("File Name: {:?}, File Content: {:?}", file_name, file_content);
+                if file_name == "lib.rs" {
+                    let mut c = String::new();
+                    let lib_content = file_content.split("\n").collect::<Vec<&str>>();
+                    let mut index = 0;
+                    for line in lib_content {
+                        match index {
+                            0..9 => {}
+                            _ => {
+                                c.push_str(&format!("{}\n", line));
+                            }
+                        } 
+                        index += 1;
+                    }
+
+                    let mut append_code = format!("\n{}", c);
+                    let clins = c.split("\n").collect::<Vec<&str>>();
+                    for line in clins {
+                        if line.contains("pub mod src") {
+                            append_code = append_code.replace("pub mod src ", "pub use src::");
+                            // 替换pub mod 到; 之间的字符串
+                            let re = Regex::new(r"pub mod (\s\S+);").unwrap();
+                            append_code = re.replace(&append_code, "pub use $1::*,").to_string();
+                            println!("Append Code: {:?}", append_code);
+                        }
+                    }
+                    append_code.push_str(";");
+                    println!("Append Code: {:?}", append_code);
+                    file_content.push_str(&append_code);
+
+                } else if file_name == &main_file_name {
+                    let mut code_c = String::new();
+                    let code_content = file_content.split("\n").collect::<Vec<&str>>();
+                    let mut index = 0;
+                    for line in code_content {
+                        if index == 1 {
+                            index += 1;
+                            continue;
+                        }
+                        if line.contains("type") && line.contains("_") {
+                            // let re = Regex::new(r"type (\s\S+)_").unwrap();
+                            // let replace_line = re.replace(line, "type $1").to_string();
+                            // code_c.push_str(&format!("{}\n", replace_line));
+                            // println!("Line: {:?}", line);
+                        } else {
+                            code_c.push_str(&format!("{}\n", line));
+                        }
+                        index += 1;
+                    }
+                    file_content = code_c;
+                }
+                result.content.push(TranscodePathParams {
+                    path: file_name.to_string(),
+                    code: file_content,
+                });
+            }
+        }
+    }
+    recursive_read_dir(&output_base_dir_path, &mut result);
+
+    Json(result)
 }
 
 async fn accept_form(mut multipart: Multipart) {

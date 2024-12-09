@@ -253,7 +253,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                     let mut index = 0;
                     for line in lib_content {
                         match index {
-                            std::ops::Range { start: 0, end: 9 } => {}
+                            0..=9 => {}
                             _ => {
                                 c.push_str(&format!("{}\n", line));
                             }

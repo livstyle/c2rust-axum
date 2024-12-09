@@ -211,6 +211,8 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
 
     let pn = params.project_name.replace("-", "_");
 
+    println!("Main File Name: {:?}", main_file_name);
+
     // 使用Commond执行 interp
     let command = Command::new("c2rust")
         .current_dir(base_path.clone())
@@ -218,7 +220,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
         .arg(format!("--binary {}", &main_file_name))
         .arg("compile_command.json")
         .arg("-o")
-        .arg(format!("{}.rs", pn))
+        .arg(format!("{}", pn))
         .output().unwrap();
 
     println!("Command Output: {:?}", command);

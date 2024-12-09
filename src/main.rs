@@ -140,7 +140,7 @@ pub struct TranscodePathParams {
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct TranscodeParams {
-    #[serde(rename = "projectName")]
+    #[serde(rename = "·")]
     pub project_name: String,
     pub content: Vec<TranscodePathParams>,
 }
@@ -190,7 +190,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
             if code_content.contains("main(") || code_content.contains("int main(") || code_content.contains("void main(") || code_content.contains("main (") {
                 println!("Main Function: {:?}", code_content);
                 let re = Regex::new(r"-").unwrap();
-                main_file_name = re.replace_all(&file_name, "_").to_string();
+                main_file_name = re.replace_all(&file_name, "_").to_string().replace(".c", "");
             }
             compile_command.push(CompileCommandItem {
                 arguments: vec!["cc".to_string(), "-c".to_string(), file_name.to_string()],

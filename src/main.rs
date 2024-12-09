@@ -145,6 +145,12 @@ pub struct TranscodeParams {
     pub content: Vec<TranscodePathParams>,
 }
 
+
+fn check_file_name(file_name: &str, main_file_name_: &str) -> bool {
+    file_name == main_file_name_
+}
+
+
 async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<TranscodeParams> {
     println!("Received params: {:?}", params);
     let constents = params.content;
@@ -185,6 +191,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                 println!("Main Function: {:?}", code_content);
                 let re = Regex::new(r"-").unwrap();
                 main_file_name = re.replace_all(&file_name, "_").to_string();
+            }
             compile_command.push(CompileCommandItem {
                 arguments: vec!["cc".to_string(), "-c".to_string(), file_name.to_string()],
                 directory: dir_path.to_str().unwrap().to_string(),
@@ -208,7 +215,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
     let command = Command::new("c2rust")
         .current_dir(base_path.clone())
         .arg("transpile")
-        .arg(format!("--binary {}", main_file_name))
+        .arg(format!("--binary {}", &main_file_name))
         .arg("compile_command.json")
         .arg("-o")
         .arg(format!("{}.rs", pn))
@@ -229,13 +236,14 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
 
     let output_base_dir_path = Path::new(&base_dir).join(&pn);
     // 递归遍历output_base_dir_path下的所有文件并添加到result中
-    fn recursive_read_dir(path: &Path, result: &mut TranscodeParams) {
+    fn recursive_read_dir(path: &Path, result: &mut TranscodeParams, main_file_name: &str) {
         for entry in fs::read_dir(path).unwrap() {
             let entry = entry.unwrap();
             let path = entry.path().to_path_buf();
             if path.is_dir() {
-                recursive_read_dir(&path, result);
+                recursive_read_dir(&path, result, main_file_name);
             } else {
+                let is_main_file = check_file_name(path.file_name().unwrap().to_str().unwrap(), main_file_name);
                 let file_name = path.file_name().unwrap().to_str().unwrap();
                 let mut file_content = fs::read_to_string(&path).unwrap();
                 println!("File Name: {:?}, File Content: {:?}", file_name, file_content);
@@ -267,14 +275,11 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                     append_code.push_str(";");
                     println!("Append Code: {:?}", append_code);
                     file_content.push_str(&append_code);
-
-                } else if file_name == &main_file_name {
+                } else if is_main_file == true {
                     let mut code_c = String::new();
-                    let code_content = file_content.split("\n").collect::<Vec<&str>>();
-                    let mut index = 0;
-                    for line in code_content {
+                    let code_content = file_content.split('\n').collect::<Vec<&str>>();
+                    for (index, line) in code_content.iter().enumerate() {
                         if index == 1 {
-                            index += 1;
                             continue;
                         }
                         if line.contains("type") && line.contains("_") {
@@ -285,7 +290,6 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                         } else {
                             code_c.push_str(&format!("{}\n", line));
                         }
-                        index += 1;
                     }
                     file_content = code_c;
                 }
@@ -296,10 +300,11 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
             }
         }
     }
-    recursive_read_dir(&output_base_dir_path, &mut result);
+    recursive_read_dir(&output_base_dir_path, &mut result, &main_file_name);
 
     Json(result)
 }
+
 
 async fn accept_form(mut multipart: Multipart) {
     while let Some(field) = multipart.next_field().await.unwrap() {

@@ -222,7 +222,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
     )
     .unwrap();
 
-    let pn = params.project_name.replace("-", "_");
+    let pn = "C".to_string() + &params.project_name;
 
     // info!("Main File Name: {:?}", main_file_name);
 
@@ -249,7 +249,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
     let output = String::from_utf8(command.stdout).unwrap();
     // info!("Output: {:?}", output);
     let error = String::from_utf8(command.stderr).unwrap();
-    // error!("Error: {:?}", error);
+    error!("Error: {:?}", error);
 
     if output.contains("Failed to execute command") {
         info!("Failed to execute command");

@@ -210,7 +210,8 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
 
     // 写入到compile_command.json中
     let compile_command_json_path = base_path.join("compile_command.json");
-    fs::write(compile_command_json_path, compile_command_json).unwrap();
+    fs::write(compile_command_json_path, &compile_command_json).unwrap();
+    fs::write(base_path.join("compile_commands.json"), compile_command_json).unwrap();
 
     let pn = params.project_name.replace("-", "_");
 
@@ -311,9 +312,9 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                     file_content = code_c;
                 }
                 // 根据output_base_dir_path获取当前文件的相对路径
-                // let relative_path = path.strip_prefix(output_base_dir_path_str).unwrap().to_str().unwrap();
+                let relative_path = path_buf.strip_prefix(output_base_dir_path_str).unwrap().to_str().unwrap();
                 result.content.push(TranscodePathParams {
-                    path: path_buf.to_str().unwrap().to_string(), //relative_path.to_string(),
+                    path: relative_path.to_string(), //path_buf.to_str().unwrap().to_string(),
                     code: file_content.clone(),
                 });
             }

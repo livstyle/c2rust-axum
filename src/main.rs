@@ -311,9 +311,9 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                     file_content = code_c;
                 }
                 // 根据output_base_dir_path获取当前文件的相对路径
-                let relative_path = path.strip_prefix(output_base_dir_path_str).unwrap().to_str().unwrap();
+                // let relative_path = path.strip_prefix(output_base_dir_path_str).unwrap().to_str().unwrap();
                 result.content.push(TranscodePathParams {
-                    path: relative_path.to_string(),
+                    path: path_buf.to_str().unwrap().to_string(), //relative_path.to_string(),
                     code: file_content.clone(),
                 });
             }

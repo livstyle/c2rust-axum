@@ -153,6 +153,13 @@ fn check_file_name(file_name: &str, main_file_name_: &str) -> bool {
 
 
 async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<TranscodeParams> {
+    let mut params = params.clone();
+    params.content.iter_mut().for_each(|content| {
+        let path = content.path.clone();
+        // 获取path的文件名部分
+        let file_name = Path::new(&path).file_name().unwrap().to_str().unwrap();
+        content.path = format!("{}", file_name);
+    });
     info!("Received params: {:?}", params);
     let contents = params.content;
     let mut compile_command = CompileCommand::new();

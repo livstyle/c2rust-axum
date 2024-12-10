@@ -255,16 +255,16 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
     fn recursive_read_dir(path: &Path, result: &mut TranscodeParams, main_file_name: &str, output_base_dir_path_str: &str) {
         for entry in fs::read_dir(path).unwrap() {
             let entry = entry.unwrap();
-            let path = entry.path().to_path_buf();
-            if path.is_dir() {
-                recursive_read_dir(&path, result, main_file_name, output_base_dir_path_str);
+            let path_buf = entry.path().to_path_buf();
+            if path_buf.is_dir() {
+                recursive_read_dir(&path_buf, result, main_file_name, output_base_dir_path_str);
             } else {
                 // 获取当前文件的相对路径
-                let is_main_file = check_file_name(path.file_name().unwrap().to_str().unwrap(), main_file_name);
-                let file_name = path.file_name().unwrap().to_str().unwrap();
-                let mut file_content = fs::read_to_string(&path).unwrap();
+                let is_main_file = check_file_name(path_buf.file_name().unwrap().to_str().unwrap(), main_file_name);
+                let file_name = path_buf.file_name().unwrap().to_str().unwrap();
+                let mut file_content = fs::read_to_string(&path_buf).unwrap();
                 info!("File Name: {:?}, File Content: {:?}", file_name, file_content);
-                if file_name == "lib.rs" {
+                if file_name.contains("lib.rs") {
                     let mut c = String::new();
                     let lib_content = file_content.split("\n").collect::<Vec<&str>>();
                     let mut index = 0;

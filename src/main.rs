@@ -249,14 +249,17 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
     result.project_name = pn.clone();
 
     let output_base_dir_path = Path::new(&base_dir).join(&pn);
+    let output_base_dir_path_str = output_base_dir_path.to_str().unwrap();
+    
     // 递归遍历output_base_dir_path下的所有文件并添加到result中
-    fn recursive_read_dir(path: &Path, result: &mut TranscodeParams, main_file_name: &str) {
+    fn recursive_read_dir(path: &Path, result: &mut TranscodeParams, main_file_name: &str, output_base_dir_path_str: &str) {
         for entry in fs::read_dir(path).unwrap() {
             let entry = entry.unwrap();
             let path = entry.path().to_path_buf();
             if path.is_dir() {
-                recursive_read_dir(&path, result, main_file_name);
+                recursive_read_dir(&path, result, main_file_name, output_base_dir_path_str);
             } else {
+                // 获取当前文件的相对路径
                 let is_main_file = check_file_name(path.file_name().unwrap().to_str().unwrap(), main_file_name);
                 let file_name = path.file_name().unwrap().to_str().unwrap();
                 let mut file_content = fs::read_to_string(&path).unwrap();
@@ -308,15 +311,15 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                     file_content = code_c;
                 }
                 // 根据output_base_dir_path获取当前文件的相对路径
-                let relative_path = path.to_str().unwrap().replace(&base_dir, "");
+                let relative_path = path.strip_prefix(output_base_dir_path_str).unwrap().to_str().unwrap();
                 result.content.push(TranscodePathParams {
-                    path: relative_path,
-                    code: file_content,
+                    path: relative_path.to_string(),
+                    code: file_content.clone(),
                 });
             }
         }
     }
-    recursive_read_dir(&output_base_dir_path, &mut result, &main_file_name);
+    recursive_read_dir(&output_base_dir_path, &mut result, &main_file_name, &output_base_dir_path_str);
 
     info!("Response Result: {:?}", result);
 

@@ -4,7 +4,7 @@ use std::{fs, path::Path, process::Command};
 
 use axum::{
     extract::{DefaultBodyLimit, Multipart},
-    response::Html,
+    // response::Html,
     routing::post,
     Router, Json,
 };
@@ -43,26 +43,26 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn show_form() -> Html<&'static str> {
-    Html(
-        r#"
-        <!doctype html>
-        <html>
-            <head></head>
-            <body>
-                <form action="/" method="post" enctype="multipart/form-data">
-                    <label>
-                        Upload file:
-                        <input type="file" name="file" multiple>
-                    </label>
+// async fn show_form() -> Html<&'static str> {
+//     Html(
+//         r#"
+//         <!doctype html>
+//         <html>
+//             <head></head>
+//             <body>
+//                 <form action="/" method="post" enctype="multipart/form-data">
+//                     <label>
+//                         Upload file:
+//                         <input type="file" name="file" multiple>
+//                     </label>
 
-                    <input type="submit" value="Upload files">
-                </form>
-            </body>
-        </html>
-        "#,
-    )
-}
+//                     <input type="submit" value="Upload files">
+//                 </form>
+//             </body>
+//         </html>
+//         "#,
+//     )
+// }
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct File {
@@ -141,7 +141,7 @@ pub struct TranscodePathParams {
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct TranscodeParams {
-    #[serde(rename = "·")]
+    #[serde(rename = "projectName")]
     pub project_name: String,
     pub content: Vec<TranscodePathParams>,
 }
@@ -205,7 +205,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
 
     info!("Compile Command: {:?}", compile_command);
     // 将compile_command转换为json
-    let compile_command_json = serde_json::to_string(&compile_command).unwrap();
+    let compile_command_json = serde_json::to_string(&compile_command.items).unwrap();
     info!("Compile Command JSON: {:?}", compile_command_json);
 
     // 写入到compile_command.json中

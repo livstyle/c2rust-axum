@@ -197,7 +197,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
             // 根据 dir_path 获取文件的绝对路径
             compile_command.push(CompileCommandItem {
                 arguments: vec!["cc".to_string(), "-c".to_string(), file_name.to_string()],
-                directory: dir_path.to_str().unwrap().to_string(),
+                directory: fs::canonicalize(&dir_path).unwrap().to_str().unwrap().to_string(),
                 file: file_name.to_string(),
             });
         }
@@ -219,11 +219,12 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
     // 使用Commond执行 interp
     let command = Command::new("c2rust")
         .current_dir(base_path.clone())
-        .arg("transpile")
-        .arg(format!("--binary {}", &main_file_name))
-        .arg("compile_command.json")
-        .arg("-o")
-        .arg(format!("{}", pn))
+        .args(["transpile", "--binary", &main_file_name, "compile_command.json", "-o", &pn])
+        // .arg("transpile")
+        // .arg(format!("binary {}", &main_file_name))
+        // .arg("compile_command.json")
+        // .arg("o")
+        // .arg(format!("{}", pn))
         .output().expect("Failed to execute command");
 
     info!("Command: {:?}", command);

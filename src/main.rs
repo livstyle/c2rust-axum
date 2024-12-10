@@ -11,6 +11,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tower_http::limit::RequestBodyLimitLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing::info;
 
 #[tokio::main]
 async fn main() {
@@ -152,24 +153,24 @@ fn check_file_name(file_name: &str, main_file_name_: &str) -> bool {
 
 
 async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<TranscodeParams> {
-    println!("Received params: {:?}", params);
-    let constents = params.content;
+    info!("Received params: {:?}", params);
+    let contents = params.content;
     let mut compile_command = CompileCommand::new();
     // 目录的base路径
     let base_path = Path::new("uploads").join(&params.project_name);
-    println!("Base Path: {:?}", base_path);
+    info!("Base Path: {:?}", base_path);
     let base_dir = base_path.to_str().unwrap();
     let mut main_file_name = String::new();
-    for content in constents {
+    for content in contents {
         let path = content.path;
         let code = content.code;
-        println!("Path: {:?}, Code: {:?}", path, code);
+        info!("Path: {:?}, Code: {:?}", path, code);
         // 获取path的目录部分
         let dir = Path::new(&path).parent().unwrap().to_str().unwrap();
-        println!("Dir: {:?}", dir);
+        info!("Dir: {:?}", dir);
         // 获取path的文件名部分
         let file_name = Path::new(&path).file_name().unwrap().to_str().unwrap();
-        println!("File Name: {:?}", file_name);
+        info!("File Name: {:?}", file_name);
         // 判断dir是否存在
         let dir_path = base_path.join(dir);
         if !dir_path.exists() {
@@ -184,12 +185,12 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
             let ext = Path::new(&file_name).extension().unwrap();
             ext.to_str().unwrap()
         };
-        println!("File Extension: {:?}", file_extension);
+        info!("File Extension: {:?}", file_extension);
         let code_content = code.as_str();
-        if file_extension == "c" {
+        if file_extension == "c" || file_extension == "cpp" {
             // 判断是否是main函数所在的文件
             if code_content.contains("main(") || code_content.contains("int main(") || code_content.contains("void main(") || code_content.contains("main (") {
-                println!("Main Function: {:?}", code_content);
+                info!("Main Function: {:?}", code_content);
                 let re = Regex::new(r"-").unwrap();
                 main_file_name = re.replace_all(&file_name, "_").to_string().replace(".c", "");
             }
@@ -202,10 +203,10 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
         }
     }
 
-    println!("Compile Command: {:?}", compile_command);
+    info!("Compile Command: {:?}", compile_command);
     // 将compile_command转换为json
     let compile_command_json = serde_json::to_string(&compile_command).unwrap();
-    println!("Compile Command JSON: {:?}", compile_command_json);
+    info!("Compile Command JSON: {:?}", compile_command_json);
 
     // 写入到compile_command.json中
     let compile_command_json_path = base_path.join("compile_command.json");
@@ -213,7 +214,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
 
     let pn = params.project_name.replace("-", "_");
 
-    println!("Main File Name: {:?}", main_file_name);
+    info!("Main File Name: {:?}", main_file_name);
 
     // 使用Commond执行 interp
     let command = Command::new("c2rust")
@@ -225,14 +226,14 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
         .arg(format!("{}", pn))
         .output().expect("Failed to execute command");
 
-    println!("Command Output: {:?}", command);
+    info!("Command: {:?}", command);
     let output = String::from_utf8(command.stdout).unwrap();
-    println!("Output: {:?}", output);
+    info!("Output: {:?}", output);
     let error = String::from_utf8(command.stderr).unwrap();
-    println!("Error: {:?}", error);
+    info!("Error: {:?}", error);
 
     if output.contains("Failed to execute command") {
-        println!("Failed to execute command");
+        info!("Failed to execute command");
         return Json(TranscodeParams {
             project_name: params.project_name,
             content: vec![],
@@ -258,7 +259,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                 let is_main_file = check_file_name(path.file_name().unwrap().to_str().unwrap(), main_file_name);
                 let file_name = path.file_name().unwrap().to_str().unwrap();
                 let mut file_content = fs::read_to_string(&path).unwrap();
-                println!("File Name: {:?}, File Content: {:?}", file_name, file_content);
+                info!("File Name: {:?}, File Content: {:?}", file_name, file_content);
                 if file_name == "lib.rs" {
                     let mut c = String::new();
                     let lib_content = file_content.split("\n").collect::<Vec<&str>>();
@@ -281,11 +282,11 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                             // 替换pub mod 到; 之间的字符串
                             let re = Regex::new(r"pub mod (\s\S+);").unwrap();
                             append_code = re.replace(&append_code, "pub use $1::*,").to_string();
-                            println!("Append Code: {:?}", append_code);
+                            info!("Append Code: {:?}", append_code);
                         }
                     }
                     append_code.push_str(";");
-                    println!("Append Code: {:?}", append_code);
+                    info!("Append Code: {:?}", append_code);
                     file_content.push_str(&append_code);
                 } else if is_main_file == true {
                     let mut code_c = String::new();
@@ -313,6 +314,8 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
         }
     }
     recursive_read_dir(&output_base_dir_path, &mut result, &main_file_name);
+
+    info!("Response Result: {:?}", result);
 
     Json(result)
 }

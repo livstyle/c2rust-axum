@@ -223,6 +223,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
     .unwrap();
 
     let pn = "C".to_string() + &params.project_name;
+    let pn = pn.replace("-", "").replace("-", "").replace("-", "");
 
     // info!("Main File Name: {:?}", main_file_name);
 

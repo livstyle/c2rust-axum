@@ -157,6 +157,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
     let mut compile_command = CompileCommand::new();
     // 目录的base路径
     let base_path = Path::new("uploads").join(&params.project_name);
+    println!("Base Path: {:?}", base_path);
     let base_dir = base_path.to_str().unwrap();
     let mut main_file_name = String::new();
     for content in constents {
@@ -192,6 +193,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                 let re = Regex::new(r"-").unwrap();
                 main_file_name = re.replace_all(&file_name, "_").to_string().replace(".c", "");
             }
+            // 根据 dir_path 获取文件的绝对路径
             compile_command.push(CompileCommandItem {
                 arguments: vec!["cc".to_string(), "-c".to_string(), file_name.to_string()],
                 directory: dir_path.to_str().unwrap().to_string(),
@@ -221,13 +223,21 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
         .arg("compile_command.json")
         .arg("-o")
         .arg(format!("{}", pn))
-        .output().unwrap();
+        .output().expect("Failed to execute command");
 
     println!("Command Output: {:?}", command);
     let output = String::from_utf8(command.stdout).unwrap();
     println!("Output: {:?}", output);
     let error = String::from_utf8(command.stderr).unwrap();
     println!("Error: {:?}", error);
+
+    if output.contains("Failed to execute command") {
+        println!("Failed to execute command");
+        return Json(TranscodeParams {
+            project_name: params.project_name,
+            content: vec![],
+        });
+    }
 
     let mut result = TranscodeParams {
         project_name: params.project_name,

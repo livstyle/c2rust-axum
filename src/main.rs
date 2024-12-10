@@ -11,7 +11,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tower_http::limit::RequestBodyLimitLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use tracing::info;
+use tracing::{info, error};
 
 #[tokio::main]
 async fn main() {
@@ -231,7 +231,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
     let output = String::from_utf8(command.stdout).unwrap();
     info!("Output: {:?}", output);
     let error = String::from_utf8(command.stderr).unwrap();
-    info!("Error: {:?}", error);
+    error!("Error: {:?}", error);
 
     if output.contains("Failed to execute command") {
         info!("Failed to execute command");
@@ -290,7 +290,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                     info!("Append Code: {:?}", append_code);
                     file_content.push_str(&append_code);
                 } else if is_main_file == true {
-                    let mut code_c = String::new();
+                    let mut code_c = String::from("\n");
                     let code_content = file_content.split('\n').collect::<Vec<&str>>();
                     for (index, line) in code_content.iter().enumerate() {
                         if index == 1 {
@@ -307,8 +307,10 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                     }
                     file_content = code_c;
                 }
+                // 根据output_base_dir_path获取当前文件的相对路径
+                let relative_path = path.to_str().unwrap().replace(&base_dir, "");
                 result.content.push(TranscodePathParams {
-                    path: file_name.to_string(),
+                    path: relative_path,
                     code: file_content,
                 });
             }

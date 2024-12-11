@@ -1,0 +1,20 @@
+[workspace]
+members = [
+]
+[package]
+name = "slist"
+authors = ["C2Rust"]
+version = "0.0.0"
+publish = false
+edition = "2021"
+autobins = false
+
+[lib]
+name = "slist"
+path = "lib.rs"
+crate-type = ["staticlib", "rlib"]
+[[bin]]
+path = "src/test_slist.rs"
+name = "test_slist"
+[dependencies]
+libc= "0.2"

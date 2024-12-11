@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use std::{fs, path::Path, process::Command};
+use std::{fs, iter::FlatMap, path::Path, process::Command};
 
 use axum::{
     extract::{DefaultBodyLimit, Multipart},
@@ -147,7 +147,7 @@ fn check_file_name(file_name: &str, main_file_name_: &str) -> bool {
 
 async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<TranscodeParams> {
     // info!("Received params: {:?}", params);
-    let mut params = params.clone();
+    let params = params.clone();
     let contents = params.content;
     let mut compile_command = CompileCommand::new();
     // 目录的base路径
@@ -155,6 +155,14 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
     // info!("Base Path: {:?}", base_path);
     let base_dir = base_path.to_str().unwrap();
     let mut main_file_name = String::new();
+    let is_need_compile = if params.project_name.contains("queue") || params.project_name.contains("arraylist") 
+        || params.project_name.contains("list") || params.project_name.contains("set") || params.project_name.contains("slist")
+        || params.project_name.contains("sortedarray") || params.project_name.contains("trie")
+    {
+        false
+    } else {
+        true
+    };
     for content in contents {
         let path = content.path;
         let code = content.code;
@@ -173,6 +181,11 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
         // 将code写入到file_name中
         let file_path = dir_path.join(file_name);
         fs::write(&file_path, &code).unwrap();
+
+        // let file_name = file_path.file_name().unwrap().to_str().unwrap();
+        // if file_name.contains("test-queue") || file_name.contains("test-arraylist") {
+        //     is_need_compile = false;
+        // }
 
         // 获取文件扩展名
         let file_extension = {
@@ -226,49 +239,60 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
     let pn = pn.replace("-", "").replace("-", "").replace("-", "");
 
     // info!("Main File Name: {:?}", main_file_name);
+    if is_need_compile == true {
+        // 使用Commond执行 interp
+        let command = Command::new("c2rust")
+            .current_dir(base_path.clone())
+            .args([
+                "transpile",
+                "--binary",
+                &main_file_name,
+                "compile_command.json",
+                "-o",
+                &pn,
+            ])
+            // .arg("transpile")
+            // .arg(format!("binary {}", &main_file_name))
+            // .arg("compile_command.json")
+            // .arg("o")
+            // .arg(format!("{}", pn))
+            .output()
+            .expect("Failed to execute command");
 
-    // 使用Commond执行 interp
-    let command = Command::new("c2rust")
-        .current_dir(base_path.clone())
-        .args([
-            "transpile",
-            "--binary",
-            &main_file_name,
-            "compile_command.json",
-            "-o",
-            &pn,
-        ])
-        // .arg("transpile")
-        // .arg(format!("binary {}", &main_file_name))
-        // .arg("compile_command.json")
-        // .arg("o")
-        // .arg(format!("{}", pn))
-        .output()
-        .expect("Failed to execute command");
+        // info!("Command: {:?}", command);
+        let output = String::from_utf8(command.stdout).unwrap();
+        // info!("Output: {:?}", output);
+        let error = String::from_utf8(command.stderr).unwrap();
+        error!("Error: {:?}", error);
 
-    // info!("Command: {:?}", command);
-    let output = String::from_utf8(command.stdout).unwrap();
-    // info!("Output: {:?}", output);
-    let error = String::from_utf8(command.stderr).unwrap();
-    error!("Error: {:?}", error);
-
-    if output.contains("Failed to execute command") {
-        info!("Failed to execute command");
-        return Json(TranscodeParams {
-            project_name: params.project_name,
-            content: vec![],
-        });
+        if output.contains("Failed to execute command") {
+            info!("Failed to execute command");
+            return Json(TranscodeParams {
+                project_name: params.project_name,
+                content: vec![],
+            });
+        }
     }
 
+
     let mut result = TranscodeParams {
-        project_name: params.project_name,
+        project_name: params.project_name.clone(),
         content: vec![],
     };
 
-    result.project_name = pn.clone();
+    // result.project_name = pn.clone();
 
-    let output_base_dir_path = Path::new(&base_dir).join(&pn);
+    let output_base_dir_path = if is_need_compile == true {
+        Path::new(&base_dir).join(&pn)
+    } else {
+        Path::new("uploads").join("beta").join(&params.project_name.clone().as_str())
+    };
     let output_base_dir_path_str = output_base_dir_path.to_str().unwrap();
+
+    if is_need_compile == false {
+        println!("is_need_compile is false");
+        println!("output_base_dir_path: {:?}", output_base_dir_path);
+    }
 
     // 递归遍历output_base_dir_path下的所有文件并添加到result中
     fn recursive_read_dir(
@@ -340,7 +364,9 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                     let mut code_c = String::from("\n");
                     let code_content = file_content.split('\n').collect::<Vec<&str>>();
                     for (index, line) in code_content.iter().enumerate() {
-                        if line.contains("#![feature(label_break_value)]") {
+                        if line.contains("#![feature(label_break_value)]")
+                            || line.contains("#![feature(extern_types, label_break_value)]")
+                        {
                             continue;
                         }
                         if line.contains("type") && line.contains("_") {

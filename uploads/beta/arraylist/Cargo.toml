@@ -1,0 +1,20 @@
+[workspace]
+members = [
+]
+[package]
+name = "arraylist"
+authors = ["C2Rust"]
+version = "0.0.0"
+publish = false
+edition = "2021"
+autobins = false
+
+[lib]
+name = "arraylist"
+path = "lib.rs"
+crate-type = ["staticlib", "rlib"]
+[[bin]]
+path = "src/test_arraylist.rs"
+name = "test_arraylist"
+[dependencies]
+libc= "0.2"

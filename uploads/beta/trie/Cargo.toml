@@ -1,0 +1,20 @@
+[workspace]
+members = [
+]
+[package]
+name = "trie"
+authors = ["C2Rust"]
+version = "0.0.0"
+publish = false
+edition = "2021"
+autobins = false
+
+[lib]
+name = "trie"
+path = "lib.rs"
+crate-type = ["staticlib", "rlib"]
+[[bin]]
+path = "src/test_trie.rs"
+name = "test_trie"
+[dependencies]
+libc= "0.2"

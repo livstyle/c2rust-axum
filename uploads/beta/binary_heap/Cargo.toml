@@ -1,0 +1,20 @@
+[workspace]
+members = [
+]
+[package]
+name = "binary_heap"
+authors = ["C2Rust"]
+version = "0.0.0"
+publish = false
+edition = "2021"
+autobins = false
+
+[lib]
+name = "binary_heap"
+path = "lib.rs"
+crate-type = ["staticlib", "rlib"]
+[[bin]]
+path = "src/test_binary_heap.rs"
+name = "test_binary_heap"
+[dependencies]
+libc= "0.2"

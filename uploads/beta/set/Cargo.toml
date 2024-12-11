@@ -1,0 +1,20 @@
+[workspace]
+members = [
+]
+[package]
+name = "set"
+authors = ["C2Rust"]
+version = "0.0.0"
+publish = false
+edition = "2021"
+autobins = false
+
+[lib]
+name = "set"
+path = "lib.rs"
+crate-type = ["staticlib", "rlib"]
+[[bin]]
+path = "src/test_set.rs"
+name = "test_set"
+[dependencies]
+libc= "0.2"

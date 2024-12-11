@@ -1,0 +1,20 @@
+[workspace]
+members = [
+]
+[package]
+name = "bloom_filter"
+authors = ["C2Rust"]
+version = "0.0.0"
+publish = false
+edition = "2021"
+autobins = false
+
+[lib]
+name = "bloom_filter"
+path = "lib.rs"
+crate-type = ["staticlib", "rlib"]
+[[bin]]
+path = "src/test_bloom_filter.rs"
+name = "test_bloom_filter"
+[dependencies]
+libc= "0.2"

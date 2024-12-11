@@ -1,0 +1,20 @@
+[workspace]
+members = [
+]
+[package]
+name = "compare_functions"
+authors = ["C2Rust"]
+version = "0.0.0"
+publish = false
+edition = "2021"
+autobins = false
+
+[lib]
+name = "compare_functions"
+path = "lib.rs"
+crate-type = ["staticlib", "rlib"]
+[[bin]]
+path = "src/test_compare_functions.rs"
+name = "test_compare_functions"
+[dependencies]
+libc= "0.2"

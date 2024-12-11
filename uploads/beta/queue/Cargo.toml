@@ -1,0 +1,20 @@
+[workspace]
+members = [
+]
+[package]
+name = "queue"
+authors = ["C2Rust"]
+version = "0.0.0"
+publish = false
+edition = "2021"
+autobins = false
+
+[lib]
+name = "queue"
+path = "lib.rs"
+crate-type = ["staticlib", "rlib"]
+[[bin]]
+path = "src/test_queue.rs"
+name = "test_queue"
+[dependencies]
+libc= "0.2"

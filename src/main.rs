@@ -334,6 +334,8 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                             || line.contains("#![allow(unused_mut)]")
                             || line.contains("#![feature(label_break_value)]")
                             || line.contains("extern crate libc;")
+                            || line.contains("#![feature(extern_types)]")
+                            || line.contains("#![feature(extern_types, label_break_value)]")
                         {
                             continue;
                         } else {

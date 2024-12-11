@@ -154,6 +154,10 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
     let base_path = Path::new("uploads").join(&params.project_name);
     // info!("Base Path: {:?}", base_path);
     let base_dir = base_path.to_str().unwrap();
+    // 如果目录不存在，则新建目录
+    if !base_path.exists() {
+        fs::create_dir_all(&base_path).unwrap();
+    }
     let mut main_file_name = String::new();
     let is_need_compile = if params.project_name.contains("queue") || params.project_name.contains("arraylist") 
         || params.project_name.contains("list") || params.project_name.contains("set") || params.project_name.contains("slist")

@@ -300,12 +300,13 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
         result: &mut TranscodeParams,
         main_file_name: &str,
         output_base_dir_path_str: &str,
+        is_need_compile: bool,
     ) {
         for entry in fs::read_dir(path).unwrap() {
             let entry = entry.unwrap();
             let path_buf = entry.path().to_path_buf();
             if path_buf.is_dir() {
-                recursive_read_dir(&path_buf, result, main_file_name, output_base_dir_path_str);
+                recursive_read_dir(&path_buf, result, main_file_name, output_base_dir_path_str, is_need_compile);
             } else {
                 // 获取当前文件的相对路径
                 let is_main_file = check_file_name(
@@ -320,7 +321,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                 //     file_name,
                 //     file_content.len()
                 // );
-                if file_name.contains("lib.rs") {
+                if file_name.contains("lib.rs") && is_need_compile == true {
                     let mut c = String::new();
                     let lib_content = file_content.split("\n").collect::<Vec<&str>>();
                     for line in lib_content {
@@ -398,6 +399,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
         &mut result,
         &main_file_name,
         &output_base_dir_path_str,
+        is_need_compile,
     );
 
     // info!("Response Result: {:?}", result);

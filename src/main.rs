@@ -172,14 +172,16 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
         // info!("Dir: {:?}", dir);
         // 获取path的文件名部分
         let file_name = Path::new(&path).file_name().unwrap().to_str().unwrap();
-        // info!("File Name: {:?}", file_name);
+        info!("File Name: {:?}", file_name);
         // 判断dir是否存在
-        let dir_path = base_path.join(dir);
-        if !dir_path.exists() {
-            fs::create_dir_all(&dir_path).unwrap();
-        }
-        // 将code写入到file_name中
-        let file_path = dir_path.join(file_name);
+        // let dir_path = base_path.join(dir);
+        // if !dir_path.exists() {
+        //     fs::create_dir_all(&dir_path).unwrap();
+        // }
+
+        // 这里做一个文件的归并处理，全部处理到同一个目录下
+        let file_path = base_path.join(file_name);
+        // let file_path = dir_path.join(file_name);
         fs::write(&file_path, &code).unwrap();
 
         // let file_name = file_path.file_name().unwrap().to_str().unwrap();
@@ -211,7 +213,7 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
             // 根据 dir_path 获取文件的绝对路径
             compile_command.push(CompileCommandItem {
                 arguments: vec!["cc".to_string(), "-c".to_string(), file_name.to_string()],
-                directory: fs::canonicalize(&dir_path)
+                directory: fs::canonicalize(&base_path)
                     .unwrap()
                     .to_str()
                     .unwrap()
@@ -251,11 +253,6 @@ async fn from_json_to_rust(Json(params): Json<TranscodeParams>) -> Json<Transcod
                 "-o",
                 &pn,
             ])
-            // .arg("transpile")
-            // .arg(format!("binary {}", &main_file_name))
-            // .arg("compile_command.json")
-            // .arg("o")
-            // .arg(format!("{}", pn))
             .output()
             .expect("Failed to execute command");
 
